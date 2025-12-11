@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<!-- commands-static.html - ALLES IN 1 BESTAND, GEEN DEPENDENCIES -->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <title>Mail Forwarder - Static Version</title>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+</head>
+<body>
+    <div id="container" style="display:none;">
+        <!-- Simpele UI voor feedback -->
+        <div style="padding: 20px; font-family: 'Segoe UI', sans-serif;">
+            <h2>Mail Doorsturen</h2>
+            <p id="status">Klaar om mails door te sturen...</p>
+        </div>
+    </div>
+
+    <script>
+        // ===================================================
+        // CONFIGURATIE - ALLEEN DIT HOEF JE AAN TE PASSEN
+        // ===================================================
+        const CONFIG = {
+            FORWARD_TO: "h.vos@databalance.nl",     // Wijzig dit naar jouw doorstuur adres
+            CATEGORY_NAME: "Naar Elvy gestuurd",          // Label/categorie naam
+            EMAIL_PREFIX: "[FW]",                   // Prefix voor doorgestuurde mails
+            ADD_FORWARD_NOTE: false,                 // Voeg notitie toe aan doorgestuurde mail
+            COMPANY_NAME: "Korver Holland B.V."            // Voor in de forward notitie
+        };
+        // ===================================================
+
+        // Initialize Office.js
+        Office.onReady((info) => {
+            console.log("Static Mail Forwarder Ready");
+            // Als er een UI container is, toon deze
+            const container = document.getElementById('container');
+            if (container) {
+                container.style.display = 'block';
+            }
+        });
+
+        // HOOFDFUNCTIE: Direct doorsturen zonder configuratie
+        async function forwardSelectedMails(event) {
+            try {
+                console.log("Start forwarding to:", CONFIG.FORWARD_TO);
+                
+                // Haal geselecteerde items op
+                Office.context.mailbox.getSelectedItemsAsync(async (result) => {
+                    if (result.status === Office.AsyncResultStatus.Failed) {
+                        showNotification(
+                            "Fout", 
+                            "Kon geselecteerde e-mails niet ophalen",
+                            event
+                        );
+                        return;
+                    }
+
+                    const selectedItems = result.value;
+                    
+                    if (!selectedItems || selectedItems.length === 0) {
+                        showNotification(
+                            "Geen selectie", 
+                            "Selecteer eerst één of meer e-mails",
+                            event
+                        );
+                        return;
+                    }
+
+                    // Start doorsturen
+                    showNotification(
+                        "Doorsturen...", 
+                        `${selectedItems.length} e-mail(s) worden doorgestuurd naar ${CONFIG.FORWARD_TO}`,
+                        event,
+                        false
+                    );
+
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    // Verwerk elke mail
+                    for (const item of selectedItems) {
+                        try {
+                            await forwardSingleMail(item);
+                            successCount++;
+                        } catch (error) {
+                            errorCount++;
+                            console.error(`Fout bij mail ${item.subject}:`, error);
+                        }
+                    }
+
+                    // Toon resultaat
+                    const message = errorCount === 0 
+                        ? `✅ Alle ${successCount} e-mail(s) doorgestuurd!`
+                        : `⚠️ ${successCount} doorgestuurd, ${errorCount} mislukt`;
+                    
+                    showNotification("Voltooid", message, event);
+                });
+
+            } catch (error) {
+                console.error("Kritieke fout:", error);
+                showNotification("Fout", "Er is een fout opgetreden", event);
+            }
+        }
+
+        // Forward een enkele mail via EWS (Exchange Web Services)
+        async function forwardSingleMail(item) {
+            return new Promise((resolve, reject) => {
+                // Haal het volledige item ID op
+                Office.context.mailbox.convertToEwsId(
+                    item.itemId,
+                    Office.MailboxEnums.RestVersion.v2_0,
+                    (result) => {
+                        if (result.status === Office.AsyncResultStatus.Failed) {
+                            reject(new Error("Kon mail ID niet converteren"));
+                            return;
+                        }
+
+                        const ewsId = result.value;
+                        
+                        // Bouw de forward body
+                        const forwardBody = CONFIG.ADD_FORWARD_NOTE 
+                            ? `<div style="border-left: 3px solid #0078d4; padding-left: 10px; margin: 10px 0;">
+                                <p style="color: #666;">Deze e-mail is automatisch doorgestuurd door ${CONFIG.COMPANY_NAME}</p>
+                                <p style="color: #666; font-size: 12px;">
+                                    Origineel van: ${item.from || 'Onbekend'}<br>
+                                    Datum: ${item.dateTimeCreated ? new Date(item.dateTimeCreated).toLocaleString('nl-NL') : 'Onbekend'}<br>
+                                    Onderwerp: ${item.subject || 'Geen onderwerp'}
+                                </p>
+                              </div>`
+                            : '';
+
+                        // EWS SOAP request om mail door te sturen
+                        const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
+                            <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                          xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages"
+                                          xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                                          xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                                <soap:Header>
+                                    <t:RequestServerVersion Version="Exchange2016"/>
+                                </soap:Header>
+                                <soap:Body>
+                                    <m:CreateItem MessageDisposition="SendAndSaveCopy">
+                                        <m:Items>
+                                            <t:ForwardItem>
+                                                <t:Subject>${CONFIG.EMAIL_PREFIX} ${item.subject || 'Geen onderwerp'}</t:Subject>
+                                                <t:ToRecipients>
+                                                    <t:Mailbox>
+                                                        <t:EmailAddress>${CONFIG.FORWARD_TO}</t:EmailAddress>
+                                                    </t:Mailbox>
+                                                </t:ToRecipients>
+                                                <t:ReferenceItemId Id="${ewsId}"/>
+                                                <t:NewBodyContent BodyType="HTML">${forwardBody}</t:NewBodyContent>
+                                            </t:ForwardItem>
+                                        </m:Items>
+                                    </m:CreateItem>
+                                </soap:Body>
+                            </soap:Envelope>`;
+
+                        // Verstuur via EWS
+                        Office.context.mailbox.makeEwsRequestAsync(
+                            soapRequest,
+                            (result) => {
+                                if (result.status === Office.AsyncResultStatus.Failed) {
+                                    reject(new Error(result.error.message));
+                                } else {
+                                    // Probeer categorie toe te voegen
+                                    addCategory(ewsId);
+                                    resolve();
+                                }
+                            }
+                        );
+                    }
+                );
+            });
+        }
+
+        // Voeg categorie toe aan de mail
+        function addCategory(itemId) {
+            const categoryRequest = `<?xml version="1.0" encoding="utf-8"?>
+                <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                              xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages"
+                              xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                              xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                    <soap:Header>
+                        <t:RequestServerVersion Version="Exchange2016"/>
+                    </soap:Header>
+                    <soap:Body>
+                        <m:UpdateItem ConflictResolution="AlwaysOverwrite">
+                            <m:ItemChanges>
+                                <t:ItemChange>
+                                    <t:ItemId Id="${itemId}"/>
+                                    <t:Updates>
+                                        <t:SetItemField>
+                                            <t:FieldURI FieldURI="item:Categories"/>
+                                            <t:Message>
+                                                <t:Categories>
+                                                    <t:String>${CONFIG.CATEGORY_NAME}</t:String>
+                                                </t:Categories>
+                                            </t:Message>
+                                        </t:SetItemField>
+                                    </t:Updates>
+                                </t:ItemChange>
+                            </m:ItemChanges>
+                        </m:UpdateItem>
+                    </soap:Body>
+                </soap:Envelope>`;
+
+            // Fire and forget - niet kritiek als dit faalt
+            Office.context.mailbox.makeEwsRequestAsync(categoryRequest, (result) => {
+                if (result.status === Office.AsyncResultStatus.Succeeded) {
+                    console.log("Categorie toegevoegd");
+                }
+            });
+        }
+
+        // Toon notificatie
+        function showNotification(title, message, event, autoClose = true) {
+            console.log(`${title}: ${message}`);
+            
+            // Update UI als aanwezig
+            const statusEl = document.getElementById('status');
+            if (statusEl) {
+                statusEl.textContent = `${title}: ${message}`;
+            }
+
+            // Als we in een command context zijn
+            if (Office.context.mailbox.item && Office.context.mailbox.item.notificationMessages) {
+                const notification = {
+                    type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+                    message: message,
+                    persistent: !autoClose
+                };
+
+                Office.context.mailbox.item.notificationMessages.replaceAsync(
+                    "forward-status",
+                    notification
+                );
+
+                if (autoClose) {
+                    setTimeout(() => {
+                        Office.context.mailbox.item.notificationMessages.removeAsync("forward-status");
+                    }, 5000);
+                }
+            }
+
+            // Complete het event
+            if (event && event.completed) {
+                event.completed();
+            }
+        }
+
+        // Registreer de functie voor Outlook
+        if (typeof Office !== 'undefined' && Office.actions) {
+            Office.actions.associate("forwardSelectedMails", forwardSelectedMails);
+        }
+
+        // Voor directe aanroep vanuit de button
+        window.forwardSelectedMails = forwardSelectedMails;
+    </script>
+</body>
+</html>
