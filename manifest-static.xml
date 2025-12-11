@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xsi:type="MailApp">
+  
+  <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Databalance Services B.V.</ProviderName>
+  <DefaultLocale>nl-NL</DefaultLocale>
+  <DisplayName DefaultValue="Quick Mail Doorsturen"/>
+  <Description DefaultValue="Stuurt geselecteerde mails direct door met één klik"/>
+  
+  <!-- BELANGRIJKSTE WIJZIGING: Verwijs naar waar je de HTML host -->  
+  <IconUrl DefaultValue="https://jouw-domein.nl/addin/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://jouw-domein.nl/addin/icon-64.png"/>
+  <SupportUrl DefaultValue="https://jouw-domein.nl"/>
+  
+  <AppDomains>
+    <AppDomain>https://jouw-domein.nl</AppDomain>
+  </AppDomains>
+  
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+  
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.11"/>
+    </Sets>
+  </Requirements>
+  
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <!-- Verwijs naar je gehoste HTML bestand -->
+        <SourceLocation DefaultValue="https://jouw-domein.nl/addin/commands-static.html"/>
+        <RequestedHeight>250</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+  
+  <Permissions>ReadWriteMailbox</Permissions>
+  
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message"/>
+  </Rule>
+  
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.11">
+          <bt:Set Name="Mailbox"/>
+        </bt:Sets>
+      </Requirements>
+      
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <!-- Function file - hetzelfde HTML bestand -->
+            <FunctionFile resid="Commands.Url"/>
+            
+            <!-- Ribbon button -->
+            <ExtensionPoint xsi:type="MessageReadCommandSurface">
+              <OfficeTab id="TabDefault">
+                <Group id="msgForwardGroup">
+                  <Label resid="GroupLabel"/>
+                  
+                  <!-- DE ENIGE KNOP DIE JE NODIG HEBT -->
+                  <Control xsi:type="Button" id="btnForward">
+                    <Label resid="ForwardButton.Label"/>
+                    <Supertip>
+                      <Title resid="ForwardButton.Title"/>
+                      <Description resid="ForwardButton.Desc"/>
+                    </Supertip>
+                    <Icon>
+                      <bt:Image size="16" resid="Icon.16"/>
+                      <bt:Image size="32" resid="Icon.32"/>
+                      <bt:Image size="80" resid="Icon.80"/>
+                    </Icon>
+                    <Action xsi:type="ExecuteFunction">
+                      <FunctionName>forwardSelectedMails</FunctionName>
+                    </Action>
+                  </Control>
+                  
+                </Group>
+              </OfficeTab>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+      
+      <Resources>
+        <bt:Images>
+          <!-- Je kunt base64 encoded icons gebruiken om externe dependencies te vermijden -->
+          <bt:Image id="Icon.16" DefaultValue="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAQlJREFUOE+lk7FKA0EQhr+9JBfEIBZWNnY+gI2VhaWlT2Ej2FjYWfgCFpZWPoGFhVjYWFgIQbAQQcTC4t65md2/Ze5yk9zFQQZ25pvZ/4fZ3YWiFMUPGIfBPgz3oHcGvQbcf0D3FL7r0KlGrBKneoTRJky/wuQDRpsRK8SpHmH2DSaAKIKRL1sLQ18mVokjA8oSDL9hCOgbqGXLxCpxNCAvtB5gg1sGRqtwV46zcJo9wMsBrBRhtQTFK+gcw/0L6NNMn/AJMy10z2ClCCtl0KeZPlH6xCdMy0J7H5bzsJyD1i7oxKkTp094QrdMywZ0YaEKOqFbpnkKc9U4q/wzcyrcQDPi/6IoNuEXCBoZLhLwB+cAAAAASUVORK5CYII="/>
+          <bt:Image id="Icon.32" DefaultValue="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAQlJREFUWE+lk7FKA0EQhr+9JBfEIBZWNnY+gI2VhaWlT2Ej2FjYWfgCFpZWPoGFhVjYWFgIQbAQQcTC4t65md2/Ze5yk9zFQQZ25pvZ/4fZ3YWiFMUPGIfBPgz3oHcGvQbcf0D3FL7r0KlGrBKneoTRJky/wuQDRpsRK8SpHmH2DSaAKIKRL1sLQ18mVokjA8oSDL9hCOgbqGXLxCpxNCAvtB5gg1sGRqtwV46zcJo9wMsBrBRhtQTFK+gcw/0L6NNMn/AJMy10z2ClCCtl0KeZPlH6xCdMy0J7H5bzsJyD1i7oxKkTp094QrdMywZ0YaEKOqFbpnkKc9U4q/wzcyrcQDPi/6IoNuEXCBoZLhLwB+cAAAAASUVORK5CYII="/>
+          <bt:Image id="Icon.80" DefaultValue="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAYAAAH5FsI7AAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAOwgAADsIBFShKgAAAABh0RVh0U29mdHdhcmUAcGFpbnQubmV0IDQuMS42/U4J6AAAAQlJREFUeF7tk7FKA0EQhr+9JBfEIBZWNnY+gI2VhaWlT2Ej2FjYWfgCFpZWPoGFhVjYWFgIQbAQQcTC4t65md2/Ze5yk9zFQQZ25pvZ/4fZ3YWiFMUPGIfBPgz3oHcGvQbcf0D3FL7r0KlGrBKneoTRJky/wuQDRpsRK8SpHmH2DSaAKIKRL1sLQ18mVokjA8oSDL9hCOgbqGXLxCpxNCAvtB5gg1sGRqtwV46zcJo9wMsBrBRhtQTFK+gcw/0L6NNMn/AJMy10z2ClCCtl0KeZPlH6xCdMy0J7H5bzsJyD1i7oxKkTp094QrdMywZ0YaEKOqFbpnkKc9U4q/wzcyrcQDPi/6IoNuEXCBoZLhLwB+cAAAAASUVORK5CYII="/>
+        </bt:Images>
+        
+        <bt:Urls>
+          <!-- Verwijs naar je gehoste HTML bestand -->
+          <bt:Url id="Commands.Url" DefaultValue="https://jouw-domein.nl/addin/commands-static.html"/>
+        </bt:Urls>
+        
+        <bt:ShortStrings>
+          <bt:String id="GroupLabel" DefaultValue="Quick Forward"/>
+          <bt:String id="ForwardButton.Label" DefaultValue="➤ Doorsturen"/>
+          <bt:String id="ForwardButton.Title" DefaultValue="Doorsturen naar vast adres"/>
+        </bt:ShortStrings>
+        
+        <bt:LongStrings>
+          <bt:String id="ForwardButton.Desc" DefaultValue="Stuurt alle geselecteerde e-mails direct door"/>
+        </bt:LongStrings>
+      </Resources>
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>
